@@ -12,9 +12,11 @@ This module is based on the reflectance-fitting package
 """
 module PCHIP
 
+## Export functions
 export PCHIP, pchip, interpolate
 
 
+## Define Structs
 """
     PCHIP(x,y,d,h)
 
@@ -33,8 +35,50 @@ struct PCHIP{T<:Real}
     h::Vector{T}
 end #struct PCHIP
 
+# Ensure PCHIP is seen as scaler during broadcasting
+Broadcast.broadcastable(p::PCHIP) = Ref(p)
 
-# Real PCHIP
+## Exception handling
+
+"""
+    RangeError(val::Real, pc::PCHIP{T}) where {T}
+
+Warn when `val` is out of x range in `pc`.
+"""
+struct RangeError <: Exception
+  val::Real
+  range::NamedTuple{(:min,:max),Tuple{Real,Real}}
+
+  function RangeError(val::Real, pc::PCHIP{T}) where {T}
+    # range = pc.x[1] < pc.x[end] ? (min=pc.x[1], max=pc.x[end]) :
+    #   (min=pc.x[end], max=pc.x[1])
+    range = (min=pc.x[1], max=pc.x[end])
+    new(val, range)
+  end
+end
+# Format Error message
+Base.showerror(io::IO, e::RangeError) = print(io, typeof(e), ": $(e.val) not within data range $(e.range.min)..$(e.range.max)")
+
+
+"""
+    DataError(msg, data)
+
+Warn of any misfits or errors in `data` with a message (`msg`).
+Warnings can include unsorted data or data that is not monotonic ascending.
+"""
+struct DataError <: Exception
+  msg::String
+  data::Vector{<:Real}
+end
+# Format Error message
+Base.showerror(io::IO, e::DataError) = print(io, typeof(e), ": ", e.msg, "\n", e.data)
+# Define default alarm and info message
+DataError(msg::String) = DataError(msg, Real[])
+DataError(data::Vector{<:Real}) = DataError("data not sorted ascendingly", data)
+DataError() = DataError("", Real[])
+
+## Public functions
+
 """
     pchip(x,y)
 
@@ -48,7 +92,9 @@ continuous cubic spline interpolation
 function pchip(x::Vector{T1}, y::Vector{T2}) where {T1<:Real, T2<:Real}
     len = size(x,1)
     if len<3
-        error("PCHIP requires at least three points for interpolation")
+      throw(DataError("PCHIP requires at least three points for interpolation", x))
+    elseif x ≠ sort(x)
+      throw(DataError(x))
     end
     T = promote_type(T1, T2)
     T<:Integer && (T = float(T))
@@ -100,12 +146,7 @@ v = interpolate(cs, 1.2)
 """
 function interpolate(pc::PCHIP{T}, v::Real, eps::Real=1e-4)::T where {T}
 
-    if v*(1+eps)<first(pc.x)
-        error("Extrapolation not allowed, $v<$(first(pc.x))")
-    end
-    if v*(1-eps)>last(pc.x)
-        error("Extrapolation not allowed, $v>$(last(pc.x))")
-    end
+    (v*(1+eps)<first(pc.x) || v*(1-eps)>last(pc.x)) && throw(RangeError(v, pc))
     i = lbound(pc.x, v)
     phi(t) = 3*t^2 - 2*t^3
     psi(t) = t^3 - t^2
@@ -116,6 +157,8 @@ function interpolate(pc::PCHIP{T}, v::Real, eps::Real=1e-4)::T where {T}
     pc.y[i]*H1(v) + pc.y[i+1]*H2(v) + pc.d[i]*H3(v) + pc.d[i+1]*H4(v)
 end #function interpolate
 
+
+## Private functions
 
 """
     lbound(x::Array{Float64,1}, v::Float64)

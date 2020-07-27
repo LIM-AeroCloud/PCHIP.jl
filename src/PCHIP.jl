@@ -1,4 +1,18 @@
+"""
+# Module PCHIP
+
+Piecewise Cubic Hermite Interpolating Polynomial (PCHIP) for interpolation of data
+with monotonic x data.
+
+This module is based on the reflectance-fitting package
+(https://github.com/rsturley/reflectance-fitting.git) by R. Steven Turley
+([Turley, R. Steven, "Cubic Interpolation with Irregularly-Spaced Points in Julia 1.4"
+(2018). Faculty Publications. 2177.](https://scholarsarchive.byu.edu/facpub/2177)).
+
+"""
 module PCHIP
+
+export PCHIP, pchip, interpolate
 
 
 """
@@ -12,15 +26,12 @@ Piecewise Cubic Hermite Interpolating Polynomial (PCHIP)
 - `d::Vector{Float64}`: slopes at the data points
 - `h::Vector{Float64}`: spaces between ith and (i-1)th data point
 """
-struct PCHIP
-    x::Union{Array{Float64,1},
-        StepRangeLen{Float64,
-            Base.TwicePrecision{Float64},
-            Base.TwicePrecision{Float64}}}
-    y::Array{Float64,1}
-    d::Array{Float64,1}
-    h::Array{Float64,1}
-end
+struct PCHIP{T<:Real}
+    x::Vector{T}
+    y::Vector{T}
+    d::Vector{T}
+    h::Vector{T}
+end #struct PCHIP
 
 
 # Real PCHIP
@@ -34,15 +45,17 @@ continuous cubic spline interpolation
 - `x`: an array of x values at which the function is known
 - `y`: an array of y values corresonding to these x values
 """
-function pchip3(x::Array{Float64,1}, y::Array{Float64,1})
+function pchip(x::Vector{T1}, y::Vector{T2}) where {T1<:Real, T2<:Real}
     len = size(x,1)
     if len<3
         error("PCHIP requires at least three points for interpolation")
     end
+    T = promote_type(T1, T2)
+    T<:Integer && (T = float(T))
     h = x[2:len].-x[1:len-1]
     del = (y[2:len].-y[1:len-1])./h
     # Pre-allocate and fill columns and diagonals
-    d = zeros(len)
+    d = zeros(T, len)
     d[1] = del[1]
     for i=2:len-1
         if del[i]*del[i-1] < 0
@@ -66,24 +79,26 @@ function pchip3(x::Array{Float64,1}, y::Array{Float64,1})
             end
         end
     end
-    PCHIP(x,y,d,h)
-end
+    PCHIP{T}(x,y,d,h)
+end #function pchip
 
 
 """
-    interp(cs::CubicSpline, v::Float)
+    interpolate(pc::PCHIP{T}, v::Real, eps::Real=1e-4)::T where {T} -> PCHIP{T}
 
-Interpolate to the value corresonding to v
+Interpolate `pc` to the value `v` corresonding to v.
+Only values within the original data range ± `eps` to account for floating point
+inaccuracies are allowed.
 
 # Examples
 ```
 x = cumsum(rand(10))
 y = cos.(x);
-cs = CubicSpline(x,y)
-v = interp(cs, 1.2)
+cs = PCHIP(x,y)
+v = interpolate(cs, 1.2)
 ```
 """
-function interp(pc::PCHIP, v::Float64, eps::Float64=1e-4)
+function interpolate(pc::PCHIP{T}, v::Real, eps::Real=1e-4)::T where {T}
 
     if v*(1+eps)<first(pc.x)
         error("Extrapolation not allowed, $v<$(first(pc.x))")
@@ -91,7 +106,7 @@ function interp(pc::PCHIP, v::Float64, eps::Float64=1e-4)
     if v*(1-eps)>last(pc.x)
         error("Extrapolation not allowed, $v>$(last(pc.x))")
     end
-    i = region(pc.x, v)
+    i = lbound(pc.x, v)
     phi(t) = 3*t^2 - 2*t^3
     psi(t) = t^3 - t^2
     H1(x) = phi((pc.x[i+1]-v)/pc.h[i])
@@ -99,10 +114,16 @@ function interp(pc::PCHIP, v::Float64, eps::Float64=1e-4)
     H3(x) = -pc.h[i]*psi((pc.x[i+1]-v)/pc.h[i])
     H4(x) = pc.h[i]*psi((v-pc.x[i])/pc.h[i])
     pc.y[i]*H1(v) + pc.y[i+1]*H2(v) + pc.d[i]*H3(v) + pc.d[i+1]*H4(v)
-end
+end #function interpolate
 
 
-function region(x::Array{Float64,1}, v::Float64)
+"""
+    lbound(x::Array{Float64,1}, v::Float64)
+
+Find the index of next lower `x` value in the original data compared to value `v`.
+If `v` exists as `x` value, return the index of `x`.
+"""
+function lbound(x::Vector{<:Real}, v::Real)
     # Binary search
     len = size(x,1)
     li = 1
@@ -123,7 +144,7 @@ function region(x::Array{Float64,1}, v::Float64)
             done = true
         end
     end
-    mi
-end
+    return mi
+end #function lbound
 
-end # module
+end # module PCHIP

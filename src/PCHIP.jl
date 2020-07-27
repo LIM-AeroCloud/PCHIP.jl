@@ -94,7 +94,10 @@ function pchip(x::Vector{T1}, y::Vector{T2}) where {T1<:Real, T2<:Real}
     if len<3
       throw(DataError("PCHIP requires at least three points for interpolation", x))
     elseif x ≠ sort(x)
-      throw(DataError(x))
+      try return pchip(reverse(x), reverse(y))
+      catch
+        throw(DataError(x))
+      end
     end
     T = promote_type(T1, T2)
     T<:Integer && (T = float(T))
@@ -146,7 +149,8 @@ v = interpolate(cs, 1.2)
 """
 function interpolate(pc::PCHIP{T}, v::Real, eps::Real=1e-4)::T where {T}
 
-    (v*(1+eps)<first(pc.x) || v*(1-eps)>last(pc.x)) && throw(RangeError(v, pc))
+    (v*sign(v)*(1+eps)<first(pc.x) || v*sign(v)*(1-eps)>last(pc.x)) &&
+      throw(RangeError(v, pc))
     i = lbound(pc.x, v)
     phi(t) = 3*t^2 - 2*t^3
     psi(t) = t^3 - t^2

@@ -29,10 +29,10 @@ Piecewise Cubic Hermite Interpolating Polynomial (PCHIP)
 - `h::Vector{Float64}`: spaces between ith and (i-1)th data point
 """
 struct PCHIP{T<:Real}
-    x::Vector{T}
-    y::Vector{T}
-    d::Vector{T}
-    h::Vector{T}
+  x::Vector{T}
+  y::Vector{T}
+  d::Vector{T}
+  h::Vector{T}
 end #struct PCHIP
 
 # Ensure PCHIP is seen as scaler during broadcasting
@@ -68,19 +68,16 @@ Warnings can include unsorted data or data that is not monotonic ascending.
 """
 struct DataError <: Exception
   msg::String
-  data::Vector{<:Real}
+  data::Union{Vector{<:Real},Tuple{Vararg{<:Vector{<:Real}}}}
 end
 # Format Error message
 Base.showerror(io::IO, e::DataError) = print(io, typeof(e), ": ", e.msg, "\n", e.data)
 # Define default alarm and info message
-DataError(msg::String) = DataError(msg, Real[])
-DataError(data::Vector{<:Real}) = DataError("data not sorted ascendingly", data)
-DataError() = DataError("", Real[])
 
 ## Public functions
 
 """
-    pchip(x,y)
+    pchip(x::Vector{T1}, y::Vector{T2}) where {T1<:Real, T2<:Real} -> PCHIP{T}
 
 Create the PCHIP structure needed for piecewise
 continuous cubic spline interpolation
@@ -93,11 +90,12 @@ function pchip(x::Vector{T1}, y::Vector{T2}) where {T1<:Real, T2<:Real}
     len = size(x,1)
     if len<3
       throw(DataError("PCHIP requires at least three points for interpolation", x))
+    elseif length(x) ≠ length(y)
+      throw(DataError("`x` and `y` data must be of same length", (x, y)))
+    elseif x == reverse(sort(x))
+      return pchip(reverse(x), reverse(y))
     elseif x ≠ sort(x)
-      try return pchip(reverse(x), reverse(y))
-      catch
-        throw(DataError(x))
-      end
+      throw(DataError("unsorted x data; monotonic data needed", x))
     end
     T = promote_type(T1, T2)
     T<:Integer && (T = float(T))
@@ -142,16 +140,16 @@ inaccuracies are allowed.
 # Examples
 ```
 x = cumsum(rand(10))
-y = cos.(x);
-cs = PCHIP(x,y)
-v = interpolate(cs, 1.2)
+y = cos.(x)
+p = pchip(x,y)
+v = interpolate(p, 1.2)
 ```
 """
 function interpolate(pc::PCHIP{T}, v::Real, eps::Real=1e-4)::T where {T}
 
-    (v*sign(v)*(1+eps)<first(pc.x) || v*sign(v)*(1-eps)>last(pc.x)) &&
+    (v*(1+sign(v)*eps)<first(pc.x) || v*(1-sign(v)*eps)>last(pc.x)) &&
       throw(RangeError(v, pc))
-    i = lbound(pc.x, v)
+    i = lindex(pc.x, v)
     phi(t) = 3*t^2 - 2*t^3
     psi(t) = t^3 - t^2
     H1(x) = phi((pc.x[i+1]-v)/pc.h[i])
@@ -165,12 +163,12 @@ end #function interpolate
 ## Private functions
 
 """
-    lbound(x::Array{Float64,1}, v::Float64)
+    lindex(x::Array{Float64,1}, v::Float64)
 
 Find the index of next lower `x` value in the original data compared to value `v`.
 If `v` exists as `x` value, return the index of `x`.
 """
-function lbound(x::Vector{<:Real}, v::Real)
+function lindex(x::Vector{<:Real}, v::Real)
     # Binary search
     len = size(x,1)
     li = 1
@@ -192,6 +190,6 @@ function lbound(x::Vector{<:Real}, v::Real)
         end
     end
     return mi
-end #function lbound
+end #function lindex
 
 end # module PCHIP

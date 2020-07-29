@@ -1,4 +1,4 @@
 name = "PCHIP"
 uuid = "c8f64214-e9a7-4300-b062-3bdcd891a6e3"
 authors = ["Peter Bräuer <pb866.git@gmail.com>"]
-version = "0.1.0"
+version = "0.1.1-DEV"

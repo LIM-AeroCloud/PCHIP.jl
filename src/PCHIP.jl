@@ -13,35 +13,35 @@ This module is based on the reflectance-fitting package
 module PCHIP
 
 ## Export functions
-export PCHIP, pchip, interpolate
+export PCHIPdata, pchip, interpolate
 
 
 ## Define Structs
 """
-    PCHIP(x,y,d,h)
+    PCHIPdata{T<:Real}
 
 Concrete type for holding the data needed for a
 Piecewise Cubic Hermite Interpolating Polynomial (PCHIP)
 
-- `x::Vector{Float64}`: strictly monotonic x data
-- `x::Vector{Float64}`: strictly monotonic x data
-- `d::Vector{Float64}`: slopes at the data points
-- `h::Vector{Float64}`: spaces between ith and (i-1)th data point
+- `x::Vector{T}`: strictly monotonic x data
+- `x::Vector{T}`: strictly monotonic x data
+- `d::Vector{T}`: slopes at the data points
+- `h::Vector{T}`: spaces between ith and (i-1)th data point
 """
-struct PCHIP{T<:Real}
+struct PCHIPdata{T<:Real}
   x::Vector{T}
   y::Vector{T}
   d::Vector{T}
   h::Vector{T}
-end #struct PCHIP
+end #struct PCHIPdata
 
 # Ensure PCHIP is seen as scaler during broadcasting
-Broadcast.broadcastable(p::PCHIP) = Ref(p)
+Broadcast.broadcastable(p::PCHIPdata) = Ref(p)
 
 ## Exception handling
 
 """
-    RangeError(val::Real, pc::PCHIP{T}) where {T}
+    RangeError(val::Real, pc::PCHIPdata{T}) where {T}
 
 Warn when `val` is out of x range in `pc`.
 """
@@ -49,7 +49,7 @@ struct RangeError <: Exception
   val::Real
   range::NamedTuple{(:min,:max),Tuple{Real,Real}}
 
-  function RangeError(val::Real, pc::PCHIP{T}) where {T}
+  function RangeError(val::Real, pc::PCHIPdata{T}) where {T}
     # range = pc.x[1] < pc.x[end] ? (min=pc.x[1], max=pc.x[end]) :
     #   (min=pc.x[end], max=pc.x[1])
     range = (min=pc.x[1], max=pc.x[end])
@@ -77,9 +77,9 @@ Base.showerror(io::IO, e::DataError) = print(io, typeof(e), ": ", e.msg, "\n", e
 ## Public functions
 
 """
-    pchip(x::Vector{T1}, y::Vector{T2}) where {T1<:Real, T2<:Real} -> PCHIP{T}
+    pchip(x::Vector{T1}, y::Vector{T2}) where {T1<:Real, T2<:Real} -> PCHIPdata{T}
 
-Create the PCHIP structure needed for piecewise
+Create the PCHIPdata structure needed for piecewise
 continuous cubic spline interpolation
 
 # Arguments
@@ -126,16 +126,16 @@ function pchip(x::Vector{T1}, y::Vector{T2}) where {T1<:Real, T2<:Real}
             end
         end
     end
-    PCHIP{T}(x,y,d,h)
+    PCHIPdata{T}(x,y,d,h)
 end #function pchip
 
 
 """
-    interpolate(pc::PCHIP{T}, v::Real, eps::Real=1e-4)::T where {T} -> PCHIP{T}
+    interpolate(pc::PCHIPdata{T}, v, eps::Real=1e-4)::T where {T} -> PCHIPdata{T}
 
-Interpolate `pc` to the value `v` corresonding to v.
-Only values within the original data range ± `eps` to account for floating point
-inaccuracies are allowed.
+Interpolate `pc` to `v`, where `v` is a `Real`, `Vector{<:Real}` or `AbstractRange`.
+Only values within the original data range are allowed. To account for inaccuracies
+of floats, bounds are correct by `v * (1±eps)`.
 
 # Examples
 ```
@@ -145,7 +145,7 @@ p = pchip(x,y)
 v = interpolate(p, 1.2)
 ```
 """
-function interpolate(pc::PCHIP{T}, v::Real, eps::Real=1e-4)::T where {T}
+function interpolate(pc::PCHIPdata{T}, v::Real, eps::Real=1e-4)::T where {T}
 
     (v*(1+sign(v)*eps)<first(pc.x) || v*(1-sign(v)*eps)>last(pc.x)) &&
       throw(RangeError(v, pc))
@@ -158,6 +158,11 @@ function interpolate(pc::PCHIP{T}, v::Real, eps::Real=1e-4)::T where {T}
     H4(x) = pc.h[i]*psi((v-pc.x[i])/pc.h[i])
     pc.y[i]*H1(v) + pc.y[i+1]*H2(v) + pc.d[i]*H3(v) + pc.d[i+1]*H4(v)
 end #function interpolate
+
+# Methods for interpolating data ranges
+PCHIP.interpolate(pc::PCHIP.PCHIPdata, x::Vector{<:Real}, eps::Real=1e-4) = interpolate.(pc, x, eps)
+PCHIP.interpolate(pc::PCHIP.PCHIPdata, x::AbstractRange{<:Real}, eps::Real=1e-4) = interpolate.(pc, x, eps)
+
 
 
 ## Private functions

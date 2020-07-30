@@ -131,11 +131,11 @@ end #function pchip
 
 
 """
-    interpolate(pc::PCHIPdata{T}, v::Real, eps::Real=1e-4)::T where {T} -> PCHIPdata{T}
+    interpolate(pc::PCHIPdata{T}, v, eps::Real=1e-4)::T where {T} -> PCHIPdata{T}
 
-Interpolate `pc` to the value `v` corresonding to v.
-Only values within the original data range ± `eps` to account for floating point
-inaccuracies are allowed.
+Interpolate `pc` to `v`, where `v` is a `Real`, `Vector{<:Real}` or `AbstractRange`.
+Only values within the original data range are allowed. To account for inaccuracies
+of floats, bounds are correct by `v * (1±eps)`.
 
 # Examples
 ```
@@ -158,6 +158,11 @@ function interpolate(pc::PCHIPdata{T}, v::Real, eps::Real=1e-4)::T where {T}
     H4(x) = pc.h[i]*psi((v-pc.x[i])/pc.h[i])
     pc.y[i]*H1(v) + pc.y[i+1]*H2(v) + pc.d[i]*H3(v) + pc.d[i+1]*H4(v)
 end #function interpolate
+
+# Methods for interpolating data ranges
+PCHIP.interpolate(pc::PCHIP.PCHIPdata, x::Vector{<:Real}, eps::Real=1e-4) = interpolate.(pc, x, eps)
+PCHIP.interpolate(pc::PCHIP.PCHIPdata, x::AbstractRange, eps::Real=1e-4) = interpolate.(pc, x, eps)
+
 
 
 ## Private functions

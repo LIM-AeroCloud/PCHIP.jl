@@ -160,8 +160,8 @@ function interpolate(pc::PCHIPdata{T}, v::Real, eps::Real=1e-4)::T where {T}
 end #function interpolate
 
 # Methods for interpolating data ranges
-PCHIP.interpolate(pc::PCHIP.PCHIPdata, x::Vector{<:Real}, eps::Real=1e-4) = interpolate.(pc, x, eps)
-PCHIP.interpolate(pc::PCHIP.PCHIPdata, x::AbstractRange{<:Real}, eps::Real=1e-4) = interpolate.(pc, x, eps)
+interpolate(pc::PCHIPdata, x::Vector{<:Real}, eps::Real=1e-4) = interpolate.(pc, x, eps)
+interpolate(pc::PCHIPdata, x::AbstractRange{<:Real}, eps::Real=1e-4) = interpolate.(pc, x, eps)
 
 
 

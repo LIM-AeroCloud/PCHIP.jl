@@ -32,15 +32,15 @@ interpolation. The structs holds the following fields:
   corresponding to the `x` values in true or measured data. Interpolation occurs
   in the intervals between the `breaks`.
 - `coeffs::AbstractArray{T,N} where N`: matrix with coefficients of the polynomial
-  at any given point in the `x` range; matrix is of size `pieces⋅dim` × `order`
-- `pieces::Int`: number of intervals between `breaks`
+  at any given point in the `x` range; matrix is of size `intervals⋅dim` × `order`
+- `intervals::Int`: number of intervals between `breaks`
 - `order::Int`: order of the `Polynomial`
 - `dim::Int`: dimension of the y data input in x-direction
 """
 struct Polynomial{T<:Real}
   breaks::Vector{T}
   coeffs::AbstractArray{T,N} where N
-  pieces::Int
+  intervals::Int
   order::Int
   dim::Union{Int,Tuple{Vararg{Int}}}
 end
@@ -96,7 +96,7 @@ Create the `Polynomial{T}` needed for piecewise cubic Hermite interpolation
 - `x`: a vector of monotonic x values at which the function is known
 - `y`: an vector or n-dimensional matrix of y values corresonding to these x values
 """
-function pchip(x::Vector{<:Real}, y::AbstractArray{T,N} where T<:Real where N)
+function pchip(x::Vector{<:Real}, y::AbstractArray{T,N} where T<:Real where N, xi=nothing)
   # Check input data and attempt to correct faulty data
   x, y, dim, T = checkinput(x, y)
   # Get slopes at each point
@@ -115,7 +115,9 @@ function pchip(x::Vector{<:Real}, y::AbstractArray{T,N} where T<:Real where N)
     end
   end
   # Save data in a Polynomial struct
-  store(x,y,slopes,h,del,dim.y)
+  pc = store(x,y,slopes,h,del,dim.y)
+
+  isnothing(xi) ? pc : interpolate(pc, xi)
 end #function pchip
 
 
@@ -127,13 +129,13 @@ Only values within the original data range are allowed.
 
 Returns the interpolated `output` in the following forms:
 - if original `y` data is a vector and `v <: Real`, a `Real` of type `v` is returned
-- if `y` is a vector and `v` is a vector or range, a `Vector` of type `v` is returned
+- if `y` is a vector and `v` is a vector or range, a `Vector` of element type `v` is returned
 - if `y` is an N×M matrix, a vector of length M is returned for a `v` of type `Real`
   and a length(v)×M matrix, if `v` is a vector or range
 - for N-dimensional input with `N ≥ 3`, output is of the dimensions in `x`-direction
   for a `Real` `v` or a vector of those output arrays for vectors or ranges of `v`
 """
-function interpolate(pc::Polynomial{T}, v::Real, eps::Real=1e-4) where {T}
+function interpolate(pc::Polynomial{T}, v::Real) where {T}
   # Check that v is within data rangee
   prevfloat(pc.breaks[1]) ≤ v ≤ nextfloat(pc.breaks[end]) || throw(RangeError(v, pc))
 

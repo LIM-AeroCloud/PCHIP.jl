@@ -191,7 +191,7 @@ function polynomial(
 ) where T
   # Calculate order of Polynomial, number of breaks and dimensions to reshape coeff matrix
   dlk=length(coeffs); l=length(breaks)-1; dl=prod(d)*l
-  k = dlk/dl+100*eps(); k = k < 0 ? ceil(Int, k) : floor(Int, k)
+  k = dlk/dl+100eps(); k = k < 0 ? ceil(Int, k) : floor(Int, k)
   k ≤ 0 || dl*k ≠ dlk &&  @error "Number mismatch in coefficents" l d dlk
 
   # Instantiate and return the Polynomial

@@ -19,7 +19,6 @@ function checkinput(x::Vector{<:Real}, y::AbstractArray{T,N} where T<:Real where
 
   # Get array sizes
   xsize, ysize = length(x), size(y)
-  @show ysize
   # Check for minimum size and correct corresponding lengths of x and y data
   if xsize < 2
     throw(DataError("PCHIP requires at least 2 points for interpolation", x))
@@ -36,7 +35,7 @@ function checkinput(x::Vector{<:Real}, y::AbstractArray{T,N} where T<:Real where
     end
   end
   # Ensure maximum of 2 dimensions for interpolation
-  length(ysize) > 2 && (y = reshape(y, ysize[1], prod(ysize[2:end])))
+  length(ysize) ≥ 2 && (y = reshape(y, ysize[1], prod(ysize[2:end])))
   # Check for monotonic data and make sure data is ascending
   if x ≠ sort(x)
     reverse!(x)
@@ -53,13 +52,83 @@ end #function checkinput
 
 
 """
+    lindex(x::Array{Float64,1}, v::Float64)
+
+Find the index of next lower `x` value in the original data compared to value `v`.
+If `v` exists as `x` value, return the index of `x`.
+"""
+function lindex(x::Vector{<:Real}, v::Real)
+    # Binary search
+    len = size(x,1)
+    li = 1
+    ui = len
+    mi = div(li+ui,2)
+    done = false
+    while !done
+        if v<x[mi]
+            ui = mi
+            mi = div(li+ui,2)
+        elseif v>x[mi+1]
+            li = mi
+            mi = div(li+ui,2)
+        else
+            done = true
+        end
+        if mi == li
+            done = true
+        end
+    end
+    return mi
+end #function lindex
+
+
+"""
+    store(
+      x::Vector{T},
+      y::AbstractArray{T,N},
+      s::AbstractArray{T,N},
+      dx::Vector{T},
+      divdif::AbstractArray{T,N},
+      dim::Union{Int,Tuple{Vararg{Int}}}
+    ) where T where N -> Polynomial{T}
+
+Construct a `Polynomial` with all necessary data needed for `PCHIP` interpolation
+from the `x` and `y` input data, the derivates (or slopes) at each point `s`,
+the spaces in x-directon between points `dx`, `divdif` := dy / dx (where dy = diff(y, dims=1)),
+and the dimension of the y-data in the first dimension `dim := size(y, 1)`.
+"""
+function store(
+  x::Vector{T},
+  y::AbstractArray{T,N} where N,
+  s::AbstractArray{T,N} where N,
+  dx::Vector{T},
+  divdif::AbstractArray{T,N} where N,
+  dim::Union{Int,Tuple{Vararg{Int}}}
+) where T
+
+  # Get dimensions
+  n = length(x)
+  d = size(y,2)
+  # Duplicate dx to fill all dimensions
+  dxd = repeat(dx, outer=[1,d]);
+
+  # Calculate coefficients and instantiate the Polynomial
+  dzzdx, dzdxdx = (divdif .- s[1:n-1,:])./dxd, (s[2:n,:] .- divdif) ./ dxd
+  dnm1 = (n-1)d
+  polynomial(x, [reshape(((dzdxdx .- dzzdx) ./ dxd)', dnm1, 1);
+    reshape((2dzzdx .- dzdxdx)', dnm1, 1); reshape(s[1:n-1,:]', dnm1, 1);
+    reshape(y[1:n-1,:]', dnm1, 1)], dim)
+end #function store
+
+
+"""
     pchipslopes(x,y,del)
 
-Calculate the first derivatives `d(k) = P'(x(k))` at each point (`x`, `y`) for
+Calculate the first derivatives `d(i) = P'(x(i))` at each point (`x`, `y`) for
 the shape-preserving Piecewise Cubic Hermite Interpolation.
 
-`d(k)` is the weighted avaerage of `del(k-1`) and `del(k)` when they have the same sign.
-`d(k) = 0` when `del(k-1`) and `del(k)` have opposites signs or either is zero.
+`d(i)` is the weighted avaerage of `del(i-1`) and `del(i)` when they have the same sign.
+`d(i) = 0` when `del(i-1`) and `del(i)` have opposites signs or either is zero.
 """
 function pchipslopes(x,y,del)
   # Special case n=2, use linear interpolation.
@@ -104,3 +173,27 @@ function pchipslopes(x,y,del)
 
   return d
 end #function pchipslopes
+
+
+"""
+    polynomial(
+      breaks::Vector{<:Real},
+      coeffs::AbstractArray{T,N} where T<:Real where N,
+      d::Int=1
+    )
+
+Construct a `Polynomial{T}` from the `breaks`, `coeffs`, and y-dimensions `d`.
+"""
+function polynomial(
+  breaks::Vector{T},
+  coeffs::AbstractArray{T,N} where N,
+  d::Union{Int,Tuple{Vararg{Int}}}=1
+) where T
+  # Calculate order of Polynomial, number of breaks and dimensions to reshape coeff matrix
+  dlk=length(coeffs); l=length(breaks)-1; dl=prod(d)*l
+  k = dlk/dl+100*eps(); k = k < 0 ? ceil(Int, k) : floor(Int, k)
+  k ≤ 0 || dl*k ≠ dlk &&  @error "Number mismatch in coefficents" l d dlk
+
+  # Instantiate and return the Polynomial
+  Polynomial{T}(breaks, reshape(coeffs, dl ,k), l, k, d)
+end #function polynomial

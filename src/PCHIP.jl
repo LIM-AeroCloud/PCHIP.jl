@@ -164,4 +164,14 @@ function interpolate(pc::Polynomial, x::Union{Vector{<:Real},AbstractRange{<:Rea
   Matrix(hcat(vals...)') : vals
 end
 
+
+"""
+    interpolate(pc::Polynomial) = x -> interpolate(pc, x)
+
+Generate a λ function from the polynomial `pc` that calculates interpolated values
+from the current `Polynomial` and takes just the `x` value as argument.
+"""
+interpolate(pc::Polynomial) = x -> interpolate(pc, x)
+
+
 end # module PCHIP

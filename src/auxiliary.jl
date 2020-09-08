@@ -21,7 +21,7 @@ function checkinput(x::Vector{<:Real}, y::AbstractArray{T,N} where T<:Real where
   xsize, ysize = length(x), size(y)
   # Check for minimum size and correct corresponding lengths of x and y data
   if xsize < 2
-    throw(DataError("PCHIP requires at least 2 points for interpolation", x))
+    throw(DataError("PCHIP requires at least 2 points for interpolation"))
   elseif xsize ≠ ysize[1]
     ydim = findfirst(ysize .== xsize)
     if ydim === nothing
@@ -43,7 +43,7 @@ function checkinput(x::Vector{<:Real}, y::AbstractArray{T,N} where T<:Real where
       y = reverse(y, dims = 1)
     else
       reverse!(x)
-      throw(DataError("unsorted x data; monotonic data needed", x))
+      throw(DataError("unsorted x data; monotonic data needed"))
     end
   end
 

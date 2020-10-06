@@ -1,7 +1,7 @@
 PCHIP
 =====
 
-Package for fitting of 2D data with Piecewise Cubic Hermite Interpolating Polynomial (PCHIP).
+Package for fitting of data with a Piecewise Cubic Hermite Interpolating Polynomial (PCHIP).
 
 
 Installation
@@ -15,7 +15,7 @@ pkg> add https://github.com/pb866/PCHIP.jl.git
 pkg> instantiate
 ```
 
-_PCHIP_ is tested against the latest stable release (1.5.0).
+_PCHIP_ is tested against the latest stable release (1.5.2).
 
 
 Usage
@@ -27,7 +27,7 @@ Import the package with
 using PCHIP
 ```
 
-_PCHIP_ has 2 exported function and an exported struct:
+_PCHIP_ has 2 exported functions and an exported struct:
 - `pchip`
 - `interpolate`
 - `Polynomial`
@@ -35,7 +35,7 @@ _PCHIP_ has 2 exported function and an exported struct:
 Load your `x` and `y` data with the `pchip` function to the `Polynomial{T<:Real}` struct, 
 which stores the `breaks` at which the second order derivate is allowed to be discontinuous
 and corresponds to the `x` coordinates of the original or measured data. Additional
-fields of `Polynomial` are `coeffs` with the matrix holding the coefficents of the 
+fields of `Polynomial` are `coeffs` with the matrix holding the coefficients of the 
 polynomial, the number of `intervals` between breaks, the `order` of the polynomial,
 and the dimensions `dim` of the `y` data in `x`-direction.
 

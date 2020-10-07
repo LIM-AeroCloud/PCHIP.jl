@@ -19,6 +19,9 @@ module PCHIP
 ## Export functions
 export Polynomial, pchip, interpolate
 
+## Include files
+include("auxiliary.jl") # Helper functions for PCHIP interpolation
+
 
 ## Define Structs
 """
@@ -80,10 +83,7 @@ struct DataError <: Exception
 end
 # Format Error message
 Base.showerror(io::IO, e::DataError) = print(io, typeof(e), ": ", e.msg)
-# Define default alarm and info message
 
-## Include files
-include("auxiliary.jl") # Helper functions for PCHIP interpolation
 
 ## Public functions
 

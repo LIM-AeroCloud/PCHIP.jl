@@ -3,6 +3,8 @@ PCHIP
 
 Package for fitting of data with a Piecewise Cubic Hermite Interpolating Polynomial (PCHIP).
 
+[![DOI](https://zenodo.org/badge/283150957.svg)](https://zenodo.org/badge/latestdoi/283150957)
+
 
 Installation
 ------------

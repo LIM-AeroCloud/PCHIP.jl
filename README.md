@@ -87,3 +87,8 @@ x = cumsum(-rand(10))
 y = cos.(x)
 p = pchip(x,y, -3:0.01:-1)
 ```
+
+Acknowledgements
+----------------
+
+This package is part of the [TrackMatcher framework](https://github.com/LIM-AeroCloud/TrackMatcher.jl.git).
